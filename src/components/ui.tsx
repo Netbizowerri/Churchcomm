@@ -40,11 +40,11 @@ export function Modal({
   }[size];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-stone-950/60 backdrop-blur-sm animate-in fade-in"
-        onClick={onClose}
-      />
+<div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
+        <div
+          className="fixed inset-0 bg-stone-950/60 backdrop-blur-sm animate-in fade-in"
+          onClick={onClose}
+        />
       <div
         className={cn(
           "relative w-full rounded-2xl bg-white shadow-2xl ring-1 ring-stone-200",
