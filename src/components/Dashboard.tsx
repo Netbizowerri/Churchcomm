@@ -1,5 +1,5 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { CheckSquare, Square } from "lucide-react";
+import { CheckSquare, Square, Check } from "lucide-react";
 import {
   Send,
   MessageSquare,
@@ -49,6 +49,7 @@ export function Dashboard({
   const [body, setBody] = useState("");
   const [channels, setChannels] = useState<Channel>("both");
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const active = contacts.filter((c) => c.status === "active");
@@ -321,14 +322,14 @@ export function Dashboard({
                 Recipients
               </div>
               <button
-                onClick={() => setView("contacts")}
+                onClick={() => setShowPicker(true)}
                 className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
               >
-                View all →
+                Select →
               </button>
             </div>
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex gap-1">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="flex flex-1 gap-1">
                 <button
                   onClick={selectAll}
                   className={cn(
@@ -352,8 +353,8 @@ export function Dashboard({
                   None
                 </button>
               </div>
-              <span className="text-[11px] text-stone-500">
-                {selectedIds.length} selected
+              <span className="shrink-0 text-[11px] text-stone-500">
+                {selectedIds.length} / {active.length}
               </span>
             </div>
             <div className="space-y-1">
@@ -577,6 +578,79 @@ export function Dashboard({
             You're about to send this message to <b>{recipientCount}</b> member
             {recipientCount === 1 ? "" : "s"}. This action cannot be undone.
           </div>
+        </div>
+      </Modal>
+
+      {/* Contact picker modal */}
+      <Modal
+        open={showPicker}
+        onClose={() => setShowPicker(false)}
+        title="Select recipients"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => { selectAll(); }}
+            >
+              Select all
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => { deselectAll(); }}
+            >
+              Deselect all
+            </Button>
+            <Button onClick={() => setShowPicker(false)}>
+              <Check size={14} />
+              Done ({selectedIds.length})
+            </Button>
+          </>
+        }
+      >
+        <div className="max-h-[60vh] space-y-1 overflow-y-auto">
+          {active.map((c) => {
+            const checked = selectedIds.includes(c.id);
+            const disabled = channels === "whatsapp" && !c.whatsappEnabled;
+            return (
+              <button
+                key={c.id}
+                onClick={() => !disabled && toggleContact(c.id)}
+                disabled={disabled}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-all",
+                  checked ? "bg-indigo-50/60" : "hover:bg-stone-50",
+                  disabled && "cursor-not-allowed opacity-40",
+                )}
+              >
+                <div className="shrink-0">
+                  {checked ? (
+                    <CheckSquare size={18} className="text-indigo-600" />
+                  ) : (
+                    <Square size={18} className="text-stone-300" />
+                  )}
+                </div>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-[11px] font-bold text-white">
+                  {c.firstName[0]}
+                  {c.lastName[0]}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-stone-900">
+                    {c.firstName} {c.lastName}
+                  </div>
+                  <div className="truncate text-[11px] text-stone-400">
+                    {c.phoneNumber} · {c.group || "No group"}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  {(channels === "sms" || channels === "both") && (
+                    <Badge tone="indigo">SMS</Badge>
+                  )}
+                  {(channels === "whatsapp" || channels === "both") &&
+                    c.whatsappEnabled && <Badge tone="emerald">WA</Badge>}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </Modal>
     </div>
