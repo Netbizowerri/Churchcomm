@@ -1,5 +1,5 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { CheckSquare, Square, Check } from "lucide-react";
+import { CheckSquare, Square, Search } from "lucide-react";
 import {
   Send,
   MessageSquare,
@@ -49,8 +49,8 @@ export function Dashboard({
   const [body, setBody] = useState("");
   const [channels, setChannels] = useState<Channel>("both");
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
 
   const active = contacts.filter((c) => c.status === "active");
   const whatsappEligible = active.filter((c) => c.whatsappEnabled).length;
@@ -101,7 +101,6 @@ export function Dashboard({
     onSend({ title: title.trim(), body: body.trim(), channels, contactIds: selectedIds });
     setBody("");
     setTitle("");
-    setSelectedIds(active.map((c) => c.id));
   };
 
   const handleSaveTemplate = () => {
@@ -315,25 +314,17 @@ export function Dashboard({
 
         {/* Right column */}
         <div className="space-y-5">
-          {/* Recipients preview with selection */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200">
-            <div className="mb-3 flex items-center justify-between">
+          {/* Recipients preview with search + all contacts visible */}
+          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-stone-200">
+            <div className="flex items-center justify-between border-b border-stone-100 px-5 py-3">
               <div className="text-sm font-semibold text-stone-900">
                 Recipients
               </div>
-              <button
-                onClick={() => setShowPicker(true)}
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-              >
-                Select →
-              </button>
-            </div>
-            <div className="mb-2 flex items-center gap-2">
-              <div className="flex flex-1 gap-1">
+              <div className="flex items-center gap-2 text-[11px] text-stone-500">
                 <button
                   onClick={selectAll}
                   className={cn(
-                    "rounded px-2 py-0.5 text-[10px] font-semibold transition-all",
+                    "rounded px-2 py-0.5 font-semibold transition-all",
                     selectedIds.length === active.length
                       ? "bg-indigo-100 text-indigo-700"
                       : "bg-stone-50 text-stone-500 hover:bg-stone-100",
@@ -344,7 +335,7 @@ export function Dashboard({
                 <button
                   onClick={deselectAll}
                   className={cn(
-                    "rounded px-2 py-0.5 text-[10px] font-semibold transition-all",
+                    "rounded px-2 py-0.5 font-semibold transition-all",
                     selectedIds.length === 0
                       ? "bg-indigo-100 text-indigo-700"
                       : "bg-stone-50 text-stone-500 hover:bg-stone-100",
@@ -352,69 +343,75 @@ export function Dashboard({
                 >
                   None
                 </button>
+                <span className="font-medium text-indigo-600">
+                  {selectedIds.length}/{active.length}
+                </span>
               </div>
-              <span className="shrink-0 text-[11px] text-stone-500">
-                {selectedIds.length} / {active.length}
-              </span>
             </div>
-            <div className="space-y-1">
-              {active.slice(0, 6).map((c) => {
-                const checked = selectedIds.includes(c.id);
-                const disabled =
-                  channels === "whatsapp" && !c.whatsappEnabled;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => !disabled && toggleContact(c.id)}
-                    disabled={disabled}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-all",
-                      checked
-                        ? "bg-indigo-50/60"
-                        : "hover:bg-stone-50",
-                      disabled && "cursor-not-allowed opacity-40",
-                    )}
-                  >
-                    <div className="shrink-0">
-                      {checked ? (
-                        <CheckSquare
-                          size={16}
-                          className="text-indigo-600"
-                        />
-                      ) : (
-                        <Square
-                          size={16}
-                          className="text-stone-300"
-                        />
+            <div className="p-3">
+              <div className="relative mb-2">
+                <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search contacts…"
+                  className="w-full rounded-lg border border-stone-200 bg-stone-50 py-1.5 pl-7 pr-2.5 text-xs text-stone-900 placeholder:text-stone-400 focus:border-indigo-400 focus:outline-none focus:ring-0"
+                />
+              </div>
+              <div className="max-h-[280px] space-y-0.5 overflow-y-auto">
+                {(search
+                  ? active.filter(
+                      (c) =>
+                        c.firstName.toLowerCase().includes(search.toLowerCase()) ||
+                        c.lastName.toLowerCase().includes(search.toLowerCase()),
+                    )
+                  : active
+                ).map((c) => {
+                  const checked = selectedIds.includes(c.id);
+                  const disabled = channels === "whatsapp" && !c.whatsappEnabled;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => !disabled && toggleContact(c.id)}
+                      disabled={disabled}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-all",
+                        checked ? "bg-indigo-50/60" : "hover:bg-stone-50",
+                        disabled && "cursor-not-allowed opacity-40",
                       )}
-                    </div>
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-[10px] font-bold text-white">
-                      {c.firstName[0]}
-                      {c.lastName[0]}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-stone-900">
-                        {c.firstName} {c.lastName}
+                    >
+                      <div className="shrink-0">
+                        {checked ? (
+                          <CheckSquare size={15} className="text-indigo-600" />
+                        ) : (
+                          <Square size={15} className="text-stone-300" />
+                        )}
                       </div>
-                      <div className="truncate text-[10px] text-stone-400">
-                        {c.group || "No group"}
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-[9px] font-bold text-white">
+                        {c.firstName[0]}
+                        {c.lastName[0]}
                       </div>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      {(channels === "sms" || channels === "both") && (
-                        <Badge tone="indigo">SMS</Badge>
-                      )}
-                      {(channels === "whatsapp" || channels === "both") &&
-                        c.whatsappEnabled && <Badge tone="emerald">WA</Badge>}
-                    </div>
-                  </button>
-                );
-              })}
-              {active.length > 6 && (
-                <div className="text-center text-xs text-stone-500">
-                  + {active.length - 6} more
-                </div>
-              )}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-xs font-medium text-stone-900">
+                          {c.firstName} {c.lastName}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        {(channels === "sms" || channels === "both") && (
+                          <Badge tone="indigo">SMS</Badge>
+                        )}
+                        {(channels === "whatsapp" || channels === "both") &&
+                          c.whatsappEnabled && <Badge tone="emerald">WA</Badge>}
+                      </div>
+                    </button>
+                  );
+                })}
+                {search && active.filter((c) => c.firstName.toLowerCase().includes(search.toLowerCase()) || c.lastName.toLowerCase().includes(search.toLowerCase())).length === 0 && (
+                  <div className="py-6 text-center text-xs text-stone-400">
+                    No contacts match "{search}"
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -581,78 +578,6 @@ export function Dashboard({
         </div>
       </Modal>
 
-      {/* Contact picker modal */}
-      <Modal
-        open={showPicker}
-        onClose={() => setShowPicker(false)}
-        title="Select recipients"
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => { selectAll(); }}
-            >
-              Select all
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => { deselectAll(); }}
-            >
-              Deselect all
-            </Button>
-            <Button onClick={() => setShowPicker(false)}>
-              <Check size={14} />
-              Done ({selectedIds.length})
-            </Button>
-          </>
-        }
-      >
-        <div className="max-h-[60vh] space-y-1 overflow-y-auto">
-          {active.map((c) => {
-            const checked = selectedIds.includes(c.id);
-            const disabled = channels === "whatsapp" && !c.whatsappEnabled;
-            return (
-              <button
-                key={c.id}
-                onClick={() => !disabled && toggleContact(c.id)}
-                disabled={disabled}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-all",
-                  checked ? "bg-indigo-50/60" : "hover:bg-stone-50",
-                  disabled && "cursor-not-allowed opacity-40",
-                )}
-              >
-                <div className="shrink-0">
-                  {checked ? (
-                    <CheckSquare size={18} className="text-indigo-600" />
-                  ) : (
-                    <Square size={18} className="text-stone-300" />
-                  )}
-                </div>
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-[11px] font-bold text-white">
-                  {c.firstName[0]}
-                  {c.lastName[0]}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-stone-900">
-                    {c.firstName} {c.lastName}
-                  </div>
-                  <div className="truncate text-[11px] text-stone-400">
-                    {c.phoneNumber} · {c.group || "No group"}
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  {(channels === "sms" || channels === "both") && (
-                    <Badge tone="indigo">SMS</Badge>
-                  )}
-                  {(channels === "whatsapp" || channels === "both") &&
-                    c.whatsappEnabled && <Badge tone="emerald">WA</Badge>}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </Modal>
     </div>
   );
 }
