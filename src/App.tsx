@@ -282,7 +282,8 @@ export default function App() {
       );
 
       try {
-        const response = await fetch("http://localhost:3000/api/broadcasts/send", {
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+        const response = await fetch(`${API_URL}/api/broadcasts/send`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -341,7 +342,7 @@ export default function App() {
         const err = error as any;
         console.error("Broadcast error:", err);
         pushToast(
-          `❌ Broadcast failed: ${err.message}. Is backend running on port 3000?`,
+          `❌ Broadcast failed: ${err.message}. Check that the backend server is running.`,
           "error",
         );
 
