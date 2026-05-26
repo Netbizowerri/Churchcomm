@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/broadcasts.ts": {
+      "memory": 300,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/api/broadcasts/send", "destination": "/api/broadcasts" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

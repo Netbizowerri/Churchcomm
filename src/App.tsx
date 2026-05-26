@@ -282,7 +282,7 @@ export default function App() {
       );
 
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+        const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
         const response = await fetch(`${API_URL}/api/broadcasts/send`, {
           method: "POST",
           headers: {
