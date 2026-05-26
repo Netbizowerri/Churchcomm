@@ -1,5 +1,47 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import twilio from "twilio";
+
+/**
+ * Send SMS via Termii API
+ * Termii is a Nigerian SMS gateway perfect for African phone numbers
+ * Docs: https://developers.termii.com/messaging
+ */
+async function sendTermiiSMS(
+  apiKey: string,
+  to: string,
+  message: string,
+): Promise<{ success: boolean; messageId: string | null; error?: string }> {
+  try {
+    const response = await fetch("https://api.termii.com/api/sms/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        to,
+        from: "ChurchComm",
+        sms: message,
+        type: "plain",
+        channel: "generic",
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.code === "ok" && data.message_id) {
+      return { success: true, messageId: data.message_id };
+    }
+    return {
+      success: false,
+      messageId: null,
+      error: data.message || data.error || "Termii API error",
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      messageId: null,
+      error: error.message || "Network error sending SMS",
+    };
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Only allow POST
@@ -20,82 +62,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "No messages to send" });
     }
 
-    // Load Twilio credentials from environment
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+    // Load Termii credentials from environment
+    const termiiApiKey =
+      process.env.TERMII_LIVE_API_KEY || process.env.TERMII_API_KEY;
+    const termiiSecret = process.env.TERMII_SECRET_KEY;
 
-    if (!accountSid || !authToken || !twilioPhoneNumber) {
+    if (!termiiApiKey) {
       throw new Error(
-        "Missing Twilio credentials. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER."
+        "Missing Termii API key. Set TERMII_LIVE_API_KEY in your environment variables.",
       );
     }
 
-    const client = twilio(accountSid, authToken);
-
     console.log(
-      `📢 Starting broadcast ${broadcastId}: ${messages.length} message(s) via ${channels}`
+      `📢 Starting broadcast ${broadcastId}: ${messages.length} message(s) via Termii`,
     );
 
-    const deliveries: Array<{
-      messageId: string;
-      contactId: string;
-      phoneNumber: string;
-      channel: string;
-      status: string;
-      error?: string;
-      createdAt: string;
-      updatedAt: string;
-    }> = [];
+    const deliveries: any[] = [];
 
     let successCount = 0;
     let failureCount = 0;
 
-    // Send all messages (sequential to avoid rate limiting)
+    // Send all messages via Termii (sequential to avoid rate limiting)
     for (const msg of messages) {
-      const delivery = {
+      const delivery: any = {
         messageId: "",
         contactId: msg.contactId,
         phoneNumber: msg.phoneNumber,
-        channel: msg.channel,
+        channel: "sms",
         status: "queued",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       try {
-        let result;
-        if (msg.channel === "sms") {
-          result = await client.messages.create({
-            body: body,
-            from: twilioPhoneNumber,
-            to: msg.phoneNumber,
-          });
-        } else if (msg.channel === "whatsapp") {
-          // For WhatsApp, use the same Twilio number with whatsapp: prefix
-          result = await client.messages.create({
-            body: title ? `${title}\n\n${body}` : body,
-            from: `whatsapp:${twilioPhoneNumber}`,
-            to: `whatsapp:${msg.phoneNumber}`,
-          });
-        } else {
-          throw new Error(`Unknown channel: ${msg.channel}`);
+        // Termii only supports SMS — skip WhatsApp messages silently
+        if (msg.channel !== "sms") {
+          delivery.status = "skipped";
+          delivery.error = "WhatsApp not available with Termii";
+          failureCount++;
+          deliveries.push(delivery);
+          continue;
         }
 
-        delivery.messageId = result.sid;
-        delivery.status = "sending";
-        successCount++;
-        console.log(
-          `✅ ${msg.channel.toUpperCase()} queued for ${msg.phoneNumber} (${result.sid})`
-        );
+        const result = await sendTermiiSMS(termiiApiKey, msg.phoneNumber, body);
+
+        if (result.success) {
+          delivery.messageId = result.messageId || "";
+          delivery.status = "sending";
+          successCount++;
+          console.log(`✅ SMS sent to ${msg.phoneNumber} (${result.messageId})`);
+        } else {
+          delivery.status = "failed";
+          delivery.error = result.error;
+          failureCount++;
+          console.error(`❌ SMS failed for ${msg.phoneNumber}:`, result.error);
+        }
       } catch (error: any) {
         delivery.status = "failed";
         delivery.error = error.message;
         failureCount++;
-        console.error(
-          `❌ ${msg.channel.toUpperCase()} failed for ${msg.phoneNumber}:`,
-          error.message
-        );
+        console.error(`❌ Error sending to ${msg.phoneNumber}:`, error.message);
       }
 
       delivery.updatedAt = new Date().toISOString();
