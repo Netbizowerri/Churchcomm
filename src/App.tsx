@@ -282,7 +282,12 @@ export default function App() {
       );
 
       try {
-        const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
+        // On Vercel, API lives on same domain. On localhost, it's on port 3000.
+        const API_URL =
+          import.meta.env.VITE_API_URL ||
+          (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+            ? "http://localhost:3000"
+            : window.location.origin);
         const response = await fetch(`${API_URL}/api/broadcasts/send`, {
           method: "POST",
           headers: {
