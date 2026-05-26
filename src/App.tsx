@@ -330,12 +330,17 @@ export default function App() {
           (d: any) => d.status === "failed",
         ).length;
 
+        // Show the first error so user knows what went wrong
+        const firstError = result.deliveries.find((d: any) => d.error)?.error;
+
         if (failureCount === 0) {
           pushToast(`✅ Broadcast delivered to ${successCount} recipient(s)!`, "success");
+        } else if (firstError) {
+          pushToast(`❌ ${firstError}`, "error");
         } else {
           pushToast(
             `⚠️ Broadcast sent: ${successCount} delivered, ${failureCount} failed`,
-            failureCount < successCount ? "success" : "error",
+            "error",
           );
         }
       } catch (error) {
