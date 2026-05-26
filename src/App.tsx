@@ -14,7 +14,6 @@ import type {
   Broadcast,
   Channel,
   Contact,
-  DeliveryRecord,
   DeliveryStatus,
   Group,
   Template,
@@ -198,11 +197,21 @@ export default function App() {
 
   // --- Broadcast Engine (Twilio) ---
   const startBroadcast = useCallback(
-    async (params: { title: string; body: string; channels: Channel }) => {
+    async (params: { title: string; body: string; channels: Channel; contactIds?: string[] }) => {
       if (!currentAdmin) return;
       const active = store.contacts.filter((c) => c.status === "active");
       if (active.length === 0) {
         pushToast("No active contacts to send to.", "error");
+        return;
+      }
+
+      // Filter to selected contacts (or default to all active)
+      const targets = params.contactIds
+        ? active.filter((c) => params.contactIds!.includes(c.id))
+        : active;
+
+      if (targets.length === 0) {
+        pushToast("No contacts selected.", "error");
         return;
       }
 
@@ -215,7 +224,7 @@ export default function App() {
         title?: string;
       }> = [];
 
-      active.forEach((c) => {
+      targets.forEach((c) => {
         if (params.channels === "sms" || params.channels === "both") {
           messages.push({
             contactId: c.id,
@@ -253,7 +262,7 @@ export default function App() {
         title: params.title || "(Untitled broadcast)",
         body: params.body,
         channels: params.channels,
-        recipientCount: active.length,
+        recipientCount: targets.length,
         sentAt: new Date().toISOString(),
         sentBy: currentAdmin.name,
         progress: 0,
@@ -268,7 +277,7 @@ export default function App() {
 
       setBroadcasts((prev) => [broadcast, ...prev]);
       pushToast(
-        `📡 Sending to ${active.length} contact${active.length === 1 ? "" : "s"} via Twilio…`,
+        `📡 Sending to ${targets.length} contact${targets.length === 1 ? "" : "s"} via Twilio…`,
         "info",
       );
 
@@ -303,10 +312,6 @@ export default function App() {
             const failureCount = result.deliveries.filter(
               (d: any) => d.status === "failed",
             ).length;
-            const progress = Math.round(
-              ((successCount + failureCount) / messages.length) * 100,
-            );
-
             return {
               ...b,
               deliveries: result.deliveries,

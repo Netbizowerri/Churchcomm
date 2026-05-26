@@ -1,4 +1,5 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
+import { CheckSquare, Square } from "lucide-react";
 import {
   Send,
   MessageSquare,
@@ -40,7 +41,7 @@ export function Dashboard({
   broadcasts: Broadcast[];
   templates: Template[];
   groups: Group[];
-  onSend: (params: { title: string; body: string; channels: Channel }) => void;
+  onSend: (params: { title: string; body: string; channels: Channel; contactIds?: string[] }) => void;
   onSaveTemplate: (t: Template) => void;
   setView: (v: View) => void;
 }) {
@@ -53,15 +54,34 @@ export function Dashboard({
   const active = contacts.filter((c) => c.status === "active");
   const whatsappEligible = active.filter((c) => c.whatsappEnabled).length;
 
+  const [selectedIds, setSelectedIds] = useState<string[]>(() =>
+    active.map((c) => c.id),
+  );
+
+  const toggleContact = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const selectAll = () => setSelectedIds(active.map((c) => c.id));
+  const deselectAll = () => setSelectedIds([]);
+
   const smsCount = body.length;
   const smsSegments = smsSegmentCount(smsCount);
   const waRemaining = 4096 - body.length;
 
   const recipientCount = useMemo(() => {
-    if (channels === "sms") return active.length;
-    if (channels === "whatsapp") return whatsappEligible;
-    return active.length; // both (max)
-  }, [channels, active.length, whatsappEligible]);
+    let count = 0;
+    selectedIds.forEach((id) => {
+      const c = active.find((x) => x.id === id);
+      if (!c) return;
+      if (channels === "sms") count++;
+      else if (channels === "whatsapp") { if (c.whatsappEnabled) count++; }
+      else count++; // both
+    });
+    return count;
+  }, [channels, active, selectedIds]);
 
   const canSend =
     body.trim().length > 0 && recipientCount > 0 && admin.role !== "viewer";
@@ -77,9 +97,10 @@ export function Dashboard({
 
   const confirmSend = () => {
     setShowConfirm(false);
-    onSend({ title: title.trim(), body: body.trim(), channels });
+    onSend({ title: title.trim(), body: body.trim(), channels, contactIds: selectedIds });
     setBody("");
     setTitle("");
+    setSelectedIds(active.map((c) => c.id));
   };
 
   const handleSaveTemplate = () => {
@@ -293,7 +314,7 @@ export function Dashboard({
 
         {/* Right column */}
         <div className="space-y-5">
-          {/* Recipients preview */}
+          {/* Recipients preview with selection */}
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200">
             <div className="mb-3 flex items-center justify-between">
               <div className="text-sm font-semibold text-stone-900">
@@ -306,36 +327,91 @@ export function Dashboard({
                 View all →
               </button>
             </div>
-            <div className="space-y-2">
-              {active.slice(0, 5).map((c) => (
-                <div
-                  key={c.id}
-                  className="flex items-center gap-3 rounded-lg px-1 py-1.5"
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex gap-1">
+                <button
+                  onClick={selectAll}
+                  className={cn(
+                    "rounded px-2 py-0.5 text-[10px] font-semibold transition-all",
+                    selectedIds.length === active.length
+                      ? "bg-indigo-100 text-indigo-700"
+                      : "bg-stone-50 text-stone-500 hover:bg-stone-100",
+                  )}
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-[11px] font-bold text-white">
-                    {c.firstName[0]}
-                    {c.lastName[0]}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-stone-900">
-                      {c.firstName} {c.lastName}
-                    </div>
-                    <div className="truncate text-[11px] text-stone-500">
-                      {c.group || "No group"}
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    {(channels === "sms" || channels === "both") && (
-                      <Badge tone="indigo">SMS</Badge>
+                  All
+                </button>
+                <button
+                  onClick={deselectAll}
+                  className={cn(
+                    "rounded px-2 py-0.5 text-[10px] font-semibold transition-all",
+                    selectedIds.length === 0
+                      ? "bg-indigo-100 text-indigo-700"
+                      : "bg-stone-50 text-stone-500 hover:bg-stone-100",
+                  )}
+                >
+                  None
+                </button>
+              </div>
+              <span className="text-[11px] text-stone-500">
+                {selectedIds.length} selected
+              </span>
+            </div>
+            <div className="space-y-1">
+              {active.slice(0, 6).map((c) => {
+                const checked = selectedIds.includes(c.id);
+                const disabled =
+                  channels === "whatsapp" && !c.whatsappEnabled;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => !disabled && toggleContact(c.id)}
+                    disabled={disabled}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-all",
+                      checked
+                        ? "bg-indigo-50/60"
+                        : "hover:bg-stone-50",
+                      disabled && "cursor-not-allowed opacity-40",
                     )}
-                    {(channels === "whatsapp" || channels === "both") &&
-                      c.whatsappEnabled && <Badge tone="emerald">WA</Badge>}
-                  </div>
-                </div>
-              ))}
-              {active.length > 5 && (
+                  >
+                    <div className="shrink-0">
+                      {checked ? (
+                        <CheckSquare
+                          size={16}
+                          className="text-indigo-600"
+                        />
+                      ) : (
+                        <Square
+                          size={16}
+                          className="text-stone-300"
+                        />
+                      )}
+                    </div>
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-[10px] font-bold text-white">
+                      {c.firstName[0]}
+                      {c.lastName[0]}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-stone-900">
+                        {c.firstName} {c.lastName}
+                      </div>
+                      <div className="truncate text-[10px] text-stone-400">
+                        {c.group || "No group"}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      {(channels === "sms" || channels === "both") && (
+                        <Badge tone="indigo">SMS</Badge>
+                      )}
+                      {(channels === "whatsapp" || channels === "both") &&
+                        c.whatsappEnabled && <Badge tone="emerald">WA</Badge>}
+                    </div>
+                  </button>
+                );
+              })}
+              {active.length > 6 && (
                 <div className="text-center text-xs text-stone-500">
-                  + {active.length - 5} more
+                  + {active.length - 6} more
                 </div>
               )}
             </div>
@@ -505,13 +581,6 @@ export function Dashboard({
       </Modal>
     </div>
   );
-}
-
-function greetingTime(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "morning";
-  if (h < 17) return "afternoon";
-  return "evening";
 }
 
 function StatCard({

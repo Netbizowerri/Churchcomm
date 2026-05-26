@@ -1,7 +1,7 @@
 import { uid } from "./utils/phone";
 import type { Admin, Contact, Group, Template } from "./types";
 
-const LS_KEY = "churchcomm.v1";
+const LS_KEY = "churchcomm.2026.v2";
 
 export type StoreShape = {
   currentAdminId: string | null;
